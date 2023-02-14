@@ -1,0 +1,6 @@
+# Exclusion des elements inutiles pour le run
+app/node_modules
+Dockerfile
+LICENSE
+README.md
+.gitignore

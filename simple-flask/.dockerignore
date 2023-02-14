@@ -1,0 +1,4 @@
+# Exclure les scripts
+*.sh
+# Dockerfile
+Dockerfile*
