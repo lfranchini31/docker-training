@@ -3,11 +3,24 @@
 ## Structure du projet
 ```
 .
+├── alertmanager
+│   └── config.yml
+├── assets
+│   └── output.jpg
 ├── compose.yaml
 ├── grafana
-│   └── datasource.yml
+│   ├── dashboards
+│   │   ├── dashboard.yml
+│   │   ├── docker_containers.json
+│   │   ├── docker_host.json
+│   │   └── monitor_services.json
+│   └── datasources
+│       └── datasource.yml
 ├── prometheus
-│   └── prometheus.yml
+│   ├── cadvisor-alerts.rules
+│   ├── node-exporter-alerts.rules
+│   ├── prom-alerts.rules
+│   └── prometheus.yml
 └── README.md
 ```
 
@@ -16,14 +29,22 @@
 services:
   prometheus:
     image: prom/prometheus
-    ...
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=5d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
     ports:
       - 9090:9090
-  grafana:
-    image: grafana/grafana
-    ...
-    ports:
-      - 3000:3000
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prom_data:/prometheus
+    networks:
+      - monitoring
 ```
 Ce fichier Docker Compose définit une stack avec deux services : `prometheus` et `grafana`.
 Lors du déploiement de la stack, Docker Compose va réaliser un mapping des ports par défaut de chaque service vers les ports équivalents sur l'hôte afin d'inspecter plus facilement l'interface Web de chaque service.

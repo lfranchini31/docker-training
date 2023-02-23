@@ -5,6 +5,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=5d'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
@@ -14,19 +15,30 @@ services:
     volumes:
       - ./prometheus:/etc/prometheus
       - prom_data:/prometheus
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana
     container_name: grafana
+    depends_on:
+      - prometheus
     ports:
       - 3000:3000
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=grafana
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-grafana}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - NO_PROXY=http://prometheus:9090
     volumes:
-      - ./grafana:/etc/grafana/provisioning/datasources
+      - ./grafana:/etc/grafana/provisioning
+      - graf_data:/var/lib/grafana
+    networks:
+      - monitoring
+
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter
     container_name: node-exporter
     restart: unless-stopped
     volumes:
@@ -38,7 +50,52 @@ services:
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - 9100:9100
+    networks:
+      - monitoring
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
     expose:
-      - 9100
+      - 9080:8080
+    networks:
+      - monitoring
+    restart: always
+    deploy:
+      mode: global
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    restart: unless-stopped
+    volumes:
+    - ./alertmanager:/etc/alertmanager
+    command:
+    - '--config.file=/etc/alertmanager/config.yml'
+    - '--storage.path=/alertmanager'
+    ports:
+      - 9093:9093
+    networks:
+      - monitoring
+
+  pushgateway:
+    image: prom/pushgateway
+    restart: always
+    ports:
+      - 9091:9091
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+    
 volumes:
-  prom_data:
+  prom_data: {}
+  graf_data: {}
